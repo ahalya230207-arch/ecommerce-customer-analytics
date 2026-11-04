@@ -1,0 +1,228 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E-Commerce Customer Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0c0e;color:#fff;font-family:Arial}
+header{padding:22px 5%;background:#19191d;border-bottom:2px solid #d4af37}
+header h1{color:#d4af37;margin:0}
+header p{color:#aaa}
+main{padding:25px 5%;max-width:1400px;margin:auto}
+.panel,.card{background:#19191d;border:1px solid #383838;border-radius:12px;padding:20px}
+.upload{display:inline-block;background:#d4af37;color:#111;padding:13px 18px;border-radius:7px;font-weight:bold;cursor:pointer}
+button{background:#d4af37;border:0;padding:12px 18px;border-radius:7px;font-weight:bold;cursor:pointer}
+input{display:none}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:15px;margin:22px 0}
+.card small{color:#aaa}
+.card h2{color:#e7c65d}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:17px;margin-top:20px}
+.chart{height:280px}
+h2.section{color:#d4af37;margin-top:30px}
+table{width:100%;border-collapse:collapse;min-width:500px}
+td,th{padding:12px;border-bottom:1px solid #444;text-align:left}
+th{color:#e5c35b}
+.tablewrap{overflow-x:auto}
+#status{margin:18px 0;color:#e5c35b;overflow-wrap:anywhere}
+footer{text-align:center;color:#888;padding:25px}
+</style>
+</head>
+<body>
+
+<header>
+<h1>E-Commerce Customer Behaviour & Sales Analytics</h1>
+<p>Sales Performance | Customer Insights | Product Analytics</p>
+</header>
+
+<main>
+<div class="panel">
+<h3>Upload Retail Dataset</h3>
+<p>Upload your UCI Online Retail Excel dataset for analysis.</p>
+<label class="upload">
+Choose Excel File
+<input type="file" id="file" accept=".xlsx,.xls">
+</label>
+<p id="status">Connect your backend and upload your dataset.</p>
+</div>
+
+<div class="cards">
+<div class="card"><small>Total Revenue</small><h2 id="revenue">£0</h2></div>
+<div class="card"><small>Total Orders</small><h2 id="orders">0</h2></div>
+<div class="card"><small>Unique Customers</small><h2 id="customers">0</h2></div>
+<div class="card"><small>Products</small><h2 id="products">0</h2></div>
+<div class="card"><small>Cleaned Records</small><h2 id="records">0</h2></div>
+</div>
+
+<h2 class="section">Sales Analytics</h2>
+<div class="charts">
+<div class="panel"><h3>Monthly Sales Trend</h3><div class="chart"><canvas id="monthly"></canvas></div></div>
+<div class="panel"><h3>Top 10 Products</h3><div class="chart"><canvas id="product"></canvas></div></div>
+<div class="panel"><h3>Country-wise Revenue</h3><div class="chart"><canvas id="country"></canvas></div></div>
+<div class="panel"><h3>Customer Purchase Distribution</h3><div class="chart"><canvas id="customer"></canvas></div></div>
+</div>
+
+<h2 class="section">Top Products</h2>
+<div class="panel tablewrap">
+<table><thead><tr><th>Product</th><th>Quantity</th><th>Revenue</th></tr></thead>
+<tbody id="productTable"></tbody></table>
+</div>
+
+<h2 class="section">Country Performance</h2>
+<div class="panel tablewrap">
+<table><thead><tr><th>Country</th><th>Orders</th><th>Revenue</th></tr></thead>
+<tbody id="countryTable"></tbody></table>
+</div>
+</main>
+
+<footer>Academic Project | E-Commerce Customer Analytics</footer>
+
+<script>
+// Replace this with your deployed Render backend URL.
+const API = "https://YOUR-BACKEND.onrender.com";
+
+let chartObjects = {};
+
+function money(n){
+ return "£" + Number(n).toLocaleString("en-GB",{maximumFractionDigits:2});
+}
+
+function makeChart(id,type,labels,values,label){
+ if(chartObjects[id]) chartObjects[id].destroy();
+
+ chartObjects[id]=new Chart(document.getElementById(id),{
+  type,
+  data:{
+   labels,
+   datasets:[{
+    label,
+    data:values,
+    backgroundColor:[
+     "#d4af37","#9e8538","#f0d477","#796329",
+     "#b99a42","#e8c75d","#8b7437","#c5a64d",
+     "#a48a42","#f3d987"
+    ],
+    borderColor:"#d4af37",
+    borderWidth:2,
+    tension:.3
+   }]
+  },
+  options:{
+   responsive:true,
+   maintainAspectRatio:false,
+   plugins:{legend:{labels:{color:"#fff"}}},
+   scales:type==="doughnut"?{}:{
+    x:{ticks:{color:"#ddd"},grid:{color:"#333"}},
+    y:{ticks:{color:"#ddd"},grid:{color:"#333"}}
+   }
+  }
+ });
+}
+
+function safeText(value){
+ const td=document.createElement("td");
+ td.textContent=value;
+ return td;
+}
+
+function showTable(id,rows,keys){
+ const body=document.getElementById(id);
+ body.replaceChildren();
+
+ rows.forEach(row=>{
+  const tr=document.createElement("tr");
+  keys.forEach(key=>tr.appendChild(safeText(row[key])));
+  body.appendChild(tr);
+ });
+}
+
+function displayDashboard(d){
+ document.getElementById("revenue").textContent=money(d.total_revenue);
+ document.getElementById("orders").textContent=d.total_orders;
+ document.getElementById("customers").textContent=d.unique_customers;
+ document.getElementById("products").textContent=d.unique_products;
+ document.getElementById("records").textContent=d.cleaned_records;
+
+ makeChart("monthly","line",
+  d.monthly_sales.map(x=>x.month),
+  d.monthly_sales.map(x=>x.revenue),"Revenue");
+
+ makeChart("product","bar",
+  d.top_products.map(x=>x.product.slice(0,22)),
+  d.top_products.map(x=>x.revenue),"Revenue");
+
+ makeChart("country","bar",
+  d.country_sales.map(x=>x.country),
+  d.country_sales.map(x=>x.revenue),"Revenue");
+
+ makeChart("customer","doughnut",
+  d.customer_distribution.map(x=>x.category),
+  d.customer_distribution.map(x=>x.count),"Customers");
+
+ showTable("productTable",d.top_products.map(x=>({
+  product:x.product,
+  quantity:x.quantity,
+  revenue:money(x.revenue)
+ })),["product","quantity","revenue"]);
+
+ showTable("countryTable",d.country_sales.map(x=>({
+  country:x.country,
+  orders:x.orders,
+  revenue:money(x.revenue)
+ })),["country","orders","revenue"]);
+}
+
+document.getElementById("file").addEventListener("change",async e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+
+ const status=document.getElementById("status");
+ status.textContent="Uploading and processing dataset...";
+
+ try{
+  const form=new FormData();
+  form.append("file",file);
+
+  const response=await fetch(API+"/api/upload",{
+   method:"POST",
+   body:form
+  });
+
+  const result=await response.json();
+  if(!response.ok) throw new Error(result.detail||"Upload failed");
+
+  status.textContent=result.message;
+  await loadDashboard();
+
+ }catch(error){
+  status.textContent="Connection error: "+error.message+
+   ". Check that the backend is deployed and running.";
+ }
+});
+
+async function loadDashboard(){
+ const response=await fetch(API+"/api/dashboard");
+ const data=await response.json();
+
+ if(!response.ok)throw new Error(data.detail||"Dashboard loading failed");
+ displayDashboard(data);
+}
+
+async function checkBackend(){
+ try{
+  const response=await fetch(API+"/");
+  const data=await response.json();
+  document.getElementById("status").textContent=data.message;
+ }catch(e){
+  document.getElementById("status").textContent=
+   "Backend not connected yet. Deploy the backend and update the API URL.";
+ }
+}
+
+checkBackend();
+</script>
+</body>
+</html>
