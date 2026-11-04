@@ -5,421 +5,285 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>E-Commerce Customer Behaviour & Sales Analytics</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-    font-family: Arial, sans-serif;
-    background: #101010;
-    color: #f5f5f5;
-}
-
-header {
-    background: #171717;
-    padding: 25px;
-    border-bottom: 2px solid #d4af37;
-}
-
-header h1 {
-    color: #e4c15a;
-    margin-bottom: 8px;
-}
-
-header p { color: #ccc; }
-
-.container {
-    max-width: 1200px;
-    margin: auto;
-    padding: 22px;
-}
-
-.panel, .stat, .chart-box {
-    background: #1d1d1d;
-    border: 1px solid #393939;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-}
-
-h2 {
-    color: #e4c15a;
-    margin-bottom: 15px;
-}
-
-button {
-    background: #d4af37;
-    color: #111;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 7px;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 12px;
-}
-
-button:hover { background: #f0cf62; }
-
-input[type=file] {
-    display: block;
-    margin-top: 12px;
-    color: white;
-}
-
-.status {
-    margin-top: 12px;
-    color: #ddd;
-    overflow-wrap: anywhere;
-}
-
-.cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 15px;
-}
-
-.stat h3 {
-    color: #bbb;
-    font-size: 14px;
-    margin-bottom: 12px;
-}
-
-.stat p {
-    color: #e4c15a;
-    font-size: 27px;
-    font-weight: bold;
-}
-
-.charts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 18px;
-}
-
-.chart-box { min-width: 0; }
-
-canvas { max-height: 300px; }
-
-footer {
-    text-align: center;
-    padding: 25px;
-    color: #aaa;
-}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#101010;color:#fff}
+header{background:#181818;padding:25px;border-bottom:2px solid #d4af37}
+header h1{color:#e4c15a;margin-bottom:10px}
+header p{color:#ccc;margin-top:7px}
+.container{max-width:1200px;margin:auto;padding:22px}
+.panel,.stat,.chart-box{background:#1d1d1d;border:1px solid #393939;border-radius:12px;padding:20px;margin-bottom:20px}
+h2{color:#e4c15a;margin-bottom:15px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px}
+.stat h3{font-size:14px;color:#bbb;margin-bottom:12px}
+.stat p{font-size:27px;color:#e4c15a;font-weight:bold}
+button{background:#d4af37;color:#111;border:0;padding:12px 20px;border-radius:7px;cursor:pointer;font-weight:bold;margin-top:12px}
+button:hover{background:#f0cf62}
+input{display:block;margin-top:15px;color:white;max-width:100%}
+.status{margin-top:15px;overflow-wrap:anywhere}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.chart-box{min-width:0}
+canvas{max-height:300px}
+footer{text-align:center;padding:25px;color:#aaa}
 </style>
 </head>
 
 <body>
 
 <header>
-    <h1>E-Commerce Customer Behaviour & Sales Analytics</h1>
-    <p>Data Analytics Dashboard | UCI Online Retail Dataset</p>
-    <p id="connectionStatus">Checking backend connection...</p>
+<h1>E-Commerce Customer Behaviour & Sales Analytics</h1>
+<p>Data Analytics Dashboard | UCI Online Retail Dataset</p>
+<p id="connectionStatus">Checking backend connection...</p>
 </header>
 
 <div class="container">
 
-    <section class="panel">
-        <h2>1. Upload Dataset</h2>
-        <p>Upload the UCI Online Retail Excel dataset (.xlsx).</p>
+<section class="panel">
+<h2>1. Upload Dataset</h2>
+<p>Upload the UCI Online Retail Excel dataset.</p>
+<input type="file" id="datasetFile" accept=".xlsx,.xls">
+<button onclick="uploadDataset()">Upload and Analyze</button>
+<p class="status" id="uploadStatus">No dataset uploaded yet.</p>
+</section>
 
-        <input type="file" id="datasetFile" accept=".xlsx,.xls">
+<section>
+<h2>2. Sales Dashboard</h2>
+<div class="cards">
+<div class="stat"><h3>Total Revenue</h3><p id="revenue">£0</p></div>
+<div class="stat"><h3>Total Orders</h3><p id="orders">0</p></div>
+<div class="stat"><h3>Unique Customers</h3><p id="customers">0</p></div>
+<div class="stat"><h3>Unique Products</h3><p id="products">0</p></div>
+</div>
+</section>
 
-        <button onclick="uploadDataset()">Upload and Analyze</button>
+<section class="charts">
+<div class="chart-box">
+<h2>Monthly Sales</h2>
+<canvas id="monthlyChart"></canvas>
+</div>
+<div class="chart-box">
+<h2>Top Products</h2>
+<canvas id="productsChart"></canvas>
+</div>
+<div class="chart-box">
+<h2>Sales by Country</h2>
+<canvas id="countryChart"></canvas>
+</div>
+<div class="chart-box">
+<h2>Customer Spending</h2>
+<canvas id="customerChart"></canvas>
+</div>
+</section>
 
-        <p class="status" id="uploadStatus">No dataset uploaded yet.</p>
-    </section>
-
-    <section>
-        <h2>2. Sales Dashboard</h2>
-
-        <div class="cards">
-            <div class="stat">
-                <h3>Total Revenue</h3>
-                <p id="revenue">₹0</p>
-            </div>
-
-            <div class="stat">
-                <h3>Total Orders</h3>
-                <p id="orders">0</p>
-            </div>
-
-            <div class="stat">
-                <h3>Unique Customers</h3>
-                <p id="customers">0</p>
-            </div>
-
-            <div class="stat">
-                <h3>Unique Products</h3>
-                <p id="products">0</p>
-            </div>
-        </div>
-    </section>
-
-    <section class="charts">
-        <div class="chart-box">
-            <h2>Monthly Sales</h2>
-            <canvas id="monthlyChart"></canvas>
-        </div>
-
-        <div class="chart-box">
-            <h2>Top Products</h2>
-            <canvas id="productsChart"></canvas>
-        </div>
-
-        <div class="chart-box">
-            <h2>Sales by Country</h2>
-            <canvas id="countryChart"></canvas>
-        </div>
-
-        <div class="chart-box">
-            <h2>Customer Spending</h2>
-            <canvas id="customerChart"></canvas>
-        </div>
-    </section>
-
-    <section class="panel">
-        <h2>3. Data Analysis Information</h2>
-        <p id="dataInfo">Upload a dataset to view analysis information.</p>
-        <button onclick="loadDashboard()">Refresh Dashboard</button>
-    </section>
+<section class="panel">
+<h2>3. Data Analysis Information</h2>
+<p id="dataInfo">Waiting for dashboard data...</p>
+<button onclick="loadDashboard()">Refresh Dashboard</button>
+</section>
 
 </div>
 
 <footer>
-    E-Commerce Customer Behaviour & Sales Analytics
-    <br>
-    Academic Mini Project | SDG 8 – Decent Work and Economic Growth
+E-Commerce Customer Behaviour & Sales Analytics
+<br>Academic Mini Project | SDG 8 – Decent Work and Economic Growth
 </footer>
 
 <script>
-/* IMPORTANT:
-   Replace this URL with your actual Render backend URL.
-   Do not add /api/dashboard at the end.
-*/
-const API = "https://YOUR-BACKEND.onrender.com";
+const API = "https://ecommerce-customer-analytics-mhmf.onrender.com";
 
-let monthlyChart, productsChart, countryChart, customerChart;
+let charts = {};
 
-function setStatus(message, color = "#ddd") {
-    const el = document.getElementById("connectionStatus");
-    el.textContent = message;
-    el.style.color = color;
-}
-
-function formatNumber(value) {
-    return Number(value || 0).toLocaleString("en-IN", {
-        maximumFractionDigits: 2
+function number(value){
+    return Number(value || 0).toLocaleString("en-IN",{
+        maximumFractionDigits:2
     });
 }
 
-function getArray(data, possibleKeys) {
-    for (const key of possibleKeys) {
-        if (Array.isArray(data[key])) return data[key];
+function showStatus(message,color){
+    const element=document.getElementById("connectionStatus");
+    element.textContent=message;
+    element.style.color=color;
+}
+
+function getArray(data,keys){
+    for(const key of keys){
+        if(Array.isArray(data[key])) return data[key];
     }
     return [];
 }
 
-function getLabel(item, keys) {
-    for (const key of keys) {
-        if (item && item[key] !== undefined && item[key] !== null) {
+function getLabel(item,keys){
+    for(const key of keys){
+        if(item && item[key]!==undefined && item[key]!==null)
             return item[key];
-        }
     }
     return "Unknown";
 }
 
-function getValue(item, keys) {
-    for (const key of keys) {
-        if (item && item[key] !== undefined && item[key] !== null) {
-            return Number(item[key]) || 0;
-        }
+function getValue(item,keys){
+    for(const key of keys){
+        if(item && item[key]!==undefined && item[key]!==null)
+            return Number(item[key])||0;
     }
     return 0;
 }
 
-async function checkBackend() {
-    try {
-        const response = await fetch(API + "/");
-        if (!response.ok) throw new Error("Backend unavailable");
+async function checkBackend(){
+    try{
+        const response=await fetch(API+"/");
+        if(!response.ok) throw new Error("Backend response error");
 
-        const result = await response.json();
-        setStatus("● Backend Connected", "#65e28b");
+        const result=await response.json();
+        showStatus("● Backend Connected","#65e28b");
 
-        document.getElementById("dataInfo").textContent =
+        document.getElementById("dataInfo").textContent=
             result.message || "Backend is running.";
 
         await loadDashboard();
-    } catch (error) {
-        setStatus("● Backend Not Connected – Check API URL", "#ff7070");
+    }catch(error){
+        showStatus("● Backend Not Connected – "+error.message,"#ff7070");
+        document.getElementById("dataInfo").textContent=
+            "Cannot reach backend. Check Render service and API URL.";
         console.error(error);
     }
 }
 
-async function uploadDataset() {
-    const fileInput = document.getElementById("datasetFile");
-    const status = document.getElementById("uploadStatus");
+async function uploadDataset(){
+    const file=document.getElementById("datasetFile").files[0];
+    const status=document.getElementById("uploadStatus");
 
-    if (!fileInput.files.length) {
-        status.textContent = "Please select your Excel dataset first.";
+    if(!file){
+        status.textContent="Please select your Excel dataset first.";
         return;
     }
 
-    const file = fileInput.files[0];
+    const formData=new FormData();
+    formData.append("file",file);
 
-    if (!file.name.toLowerCase().endsWith(".xlsx") &&
-        !file.name.toLowerCase().endsWith(".xls")) {
-        status.textContent = "Please select an Excel file.";
-        return;
-    }
+    status.textContent="Uploading and processing dataset...";
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    status.textContent = "Uploading and processing dataset...";
-
-    try {
-        const response = await fetch(API + "/api/upload", {
-            method: "POST",
-            body: formData
+    try{
+        const response=await fetch(API+"/api/upload",{
+            method:"POST",
+            body:formData
         });
 
-        const result = await response.json();
+        const result=await response.json();
 
-        if (!response.ok) {
-            throw new Error(result.detail || "Dataset upload failed");
+        if(!response.ok){
+            throw new Error(result.detail || JSON.stringify(result));
         }
 
-        status.textContent =
-            "Upload successful! " +
-            JSON.stringify(result);
-
+        status.textContent="Dataset uploaded successfully! "+JSON.stringify(result);
         await loadDashboard();
 
-    } catch (error) {
-        status.textContent = "Upload error: " + error.message;
+    }catch(error){
+        status.textContent="Upload failed: "+error.message;
         console.error(error);
     }
 }
 
-async function loadDashboard() {
-    try {
-        const response = await fetch(API + "/api/dashboard");
+async function loadDashboard(){
+    try{
+        const response=await fetch(API+"/api/dashboard");
 
-        if (!response.ok) {
-            throw new Error("Dashboard data not available");
+        if(!response.ok){
+            const errorText=await response.text();
+            throw new Error(errorText);
         }
 
-        const data = await response.json();
+        const data=await response.json();
 
-        document.getElementById("revenue").textContent =
-            "£" + formatNumber(data.revenue);
+        document.getElementById("revenue").textContent=
+            "£"+number(data.revenue);
 
-        document.getElementById("orders").textContent =
-            formatNumber(data.orders);
+        document.getElementById("orders").textContent=
+            number(data.orders);
 
-        document.getElementById("customers").textContent =
-            formatNumber(data.customers);
+        document.getElementById("customers").textContent=
+            number(data.customers);
 
-        document.getElementById("products").textContent =
-            formatNumber(data.products);
+        document.getElementById("products").textContent=
+            number(data.products);
 
-        document.getElementById("dataInfo").textContent =
-            "Cleaned dataset rows: " +
-            formatNumber(data.rows ?? data.cleaned_rows);
+        document.getElementById("dataInfo").textContent=
+            "Dashboard loaded successfully. Cleaned dataset rows: "+
+            number(data.rows ?? data.cleaned_rows);
 
         drawCharts(data);
 
-    } catch (error) {
+    }catch(error){
+        document.getElementById("dataInfo").textContent=
+            "Dashboard data not available yet: "+error.message;
         console.error(error);
-        document.getElementById("dataInfo").textContent =
-            "Dashboard data unavailable. Upload your dataset and check the backend.";
     }
 }
 
-function makeChart(oldChart, canvasId, type, labels, values, label) {
-    if (oldChart) oldChart.destroy();
+function createChart(id,type,labels,values,label){
+    if(charts[id]) charts[id].destroy();
 
-    const ctx = document.getElementById(canvasId);
-
-    return new Chart(ctx, {
-        type: type,
-        data: {
-            labels: labels,
-            datasets: [{
-                label: label,
-                data: values,
-                backgroundColor: [
-                    "#d4af37", "#e6c65c", "#b8962e",
-                    "#f0d98a", "#92751f", "#c9a43b",
-                    "#a88a32", "#f5df9c"
+    charts[id]=new Chart(document.getElementById(id),{
+        type:type,
+        data:{
+            labels:labels,
+            datasets:[{
+                label:label,
+                data:values,
+                backgroundColor:[
+                    "#d4af37","#e6c65c","#b8962e",
+                    "#f0d98a","#92751f","#c9a43b",
+                    "#a88a32","#f5df9c"
                 ],
-                borderColor: "#e4c15a",
-                borderWidth: 1
+                borderColor:"#e4c15a",
+                borderWidth:1
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    labels: { color: "#fff" }
-                }
+        options:{
+            responsive:true,
+            plugins:{
+                legend:{labels:{color:"#fff"}}
             },
-            scales: type === "bar" || type === "line" ? {
-                x: {
-                    ticks: { color: "#ddd" },
-                    grid: { color: "#393939" }
-                },
-                y: {
-                    ticks: { color: "#ddd" },
-                    grid: { color: "#393939" }
-                }
-            } : {}
+            scales:(type==="bar"||type==="line")?{
+                x:{ticks:{color:"#ddd"},grid:{color:"#393939"}},
+                y:{ticks:{color:"#ddd"},grid:{color:"#393939"}}
+            }:{}
         }
     });
 }
 
-function drawCharts(data) {
-    const monthly = getArray(data, ["monthly_sales", "monthly"]);
-    const topProducts = getArray(data, ["top_products", "products_sales"]);
-    const countries = getArray(data, ["country_sales", "countries"]);
-    const spending = getArray(data, ["customer_spend", "customer_spending"]);
+function drawCharts(data){
+    const monthly=getArray(data,["monthly_sales","monthly"]);
+    const products=getArray(data,["top_products","products_sales"]);
+    const countries=getArray(data,["country_sales","countries"]);
+    const customers=getArray(data,["customer_spend","customer_spending"]);
 
-    monthlyChart = makeChart(
-        monthlyChart,
-        "monthlyChart",
-        "line",
-        monthly.map(x => getLabel(x, ["month", "Month", "date"])),
-        monthly.map(x => getValue(x, ["sales", "revenue", "total"])),
+    createChart(
+        "monthlyChart","line",
+        monthly.map(x=>getLabel(x,["month","Month","date"])),
+        monthly.map(x=>getValue(x,["sales","revenue","total"])),
         "Monthly Sales"
     );
 
-    productsChart = makeChart(
-        productsChart,
-        "productsChart",
-        "bar",
-        topProducts.map(x => String(getLabel(x, ["product", "description", "Description"]))),
-        topProducts.map(x => getValue(x, ["sales", "revenue", "total"])),
+    createChart(
+        "productsChart","bar",
+        products.map(x=>String(getLabel(x,["product","description","Description"]))),
+        products.map(x=>getValue(x,["sales","revenue","total"])),
         "Product Sales"
     );
 
-    countryChart = makeChart(
-        countryChart,
-        "countryChart",
-        "bar",
-        countries.map(x => getLabel(x, ["country", "Country"])),
-        countries.map(x => getValue(x, ["sales", "revenue", "total"])),
+    createChart(
+        "countryChart","bar",
+        countries.map(x=>getLabel(x,["country","Country"])),
+        countries.map(x=>getValue(x,["sales","revenue","total"])),
         "Country Sales"
     );
 
-    customerChart = makeChart(
-        customerChart,
-        "customerChart",
-        "bar",
-        spending.map(x => getLabel(x, ["customer", "category", "group"])),
-        spending.map(x => getValue(x, ["spend", "sales", "revenue", "total"])),
+    createChart(
+        "customerChart","bar",
+        customers.map(x=>getLabel(x,["customer","category","group"])),
+        customers.map(x=>getValue(x,["spend","sales","revenue","total"])),
         "Customer Spending"
     );
 }
