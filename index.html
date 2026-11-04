@@ -3,226 +3,429 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>E-Commerce Customer Analytics</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-Commerce Customer Behaviour & Sales Analytics</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#0c0c0e;color:#fff;font-family:Arial}
-header{padding:22px 5%;background:#19191d;border-bottom:2px solid #d4af37}
-header h1{color:#d4af37;margin:0}
-header p{color:#aaa}
-main{padding:25px 5%;max-width:1400px;margin:auto}
-.panel,.card{background:#19191d;border:1px solid #383838;border-radius:12px;padding:20px}
-.upload{display:inline-block;background:#d4af37;color:#111;padding:13px 18px;border-radius:7px;font-weight:bold;cursor:pointer}
-button{background:#d4af37;border:0;padding:12px 18px;border-radius:7px;font-weight:bold;cursor:pointer}
-input{display:none}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:15px;margin:22px 0}
-.card small{color:#aaa}
-.card h2{color:#e7c65d}
-.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:17px;margin-top:20px}
-.chart{height:280px}
-h2.section{color:#d4af37;margin-top:30px}
-table{width:100%;border-collapse:collapse;min-width:500px}
-td,th{padding:12px;border-bottom:1px solid #444;text-align:left}
-th{color:#e5c35b}
-.tablewrap{overflow-x:auto}
-#status{margin:18px 0;color:#e5c35b;overflow-wrap:anywhere}
-footer{text-align:center;color:#888;padding:25px}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: Arial, sans-serif;
+    background: #101010;
+    color: #f5f5f5;
+}
+
+header {
+    background: #171717;
+    padding: 25px;
+    border-bottom: 2px solid #d4af37;
+}
+
+header h1 {
+    color: #e4c15a;
+    margin-bottom: 8px;
+}
+
+header p { color: #ccc; }
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 22px;
+}
+
+.panel, .stat, .chart-box {
+    background: #1d1d1d;
+    border: 1px solid #393939;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+h2 {
+    color: #e4c15a;
+    margin-bottom: 15px;
+}
+
+button {
+    background: #d4af37;
+    color: #111;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 12px;
+}
+
+button:hover { background: #f0cf62; }
+
+input[type=file] {
+    display: block;
+    margin-top: 12px;
+    color: white;
+}
+
+.status {
+    margin-top: 12px;
+    color: #ddd;
+    overflow-wrap: anywhere;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 15px;
+}
+
+.stat h3 {
+    color: #bbb;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.stat p {
+    color: #e4c15a;
+    font-size: 27px;
+    font-weight: bold;
+}
+
+.charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 18px;
+}
+
+.chart-box { min-width: 0; }
+
+canvas { max-height: 300px; }
+
+footer {
+    text-align: center;
+    padding: 25px;
+    color: #aaa;
+}
 </style>
 </head>
+
 <body>
 
 <header>
-<h1>E-Commerce Customer Behaviour & Sales Analytics</h1>
-<p>Sales Performance | Customer Insights | Product Analytics</p>
+    <h1>E-Commerce Customer Behaviour & Sales Analytics</h1>
+    <p>Data Analytics Dashboard | UCI Online Retail Dataset</p>
+    <p id="connectionStatus">Checking backend connection...</p>
 </header>
 
-<main>
-<div class="panel">
-<h3>Upload Retail Dataset</h3>
-<p>Upload your UCI Online Retail Excel dataset for analysis.</p>
-<label class="upload">
-Choose Excel File
-<input type="file" id="file" accept=".xlsx,.xls">
-</label>
-<p id="status">Connect your backend and upload your dataset.</p>
+<div class="container">
+
+    <section class="panel">
+        <h2>1. Upload Dataset</h2>
+        <p>Upload the UCI Online Retail Excel dataset (.xlsx).</p>
+
+        <input type="file" id="datasetFile" accept=".xlsx,.xls">
+
+        <button onclick="uploadDataset()">Upload and Analyze</button>
+
+        <p class="status" id="uploadStatus">No dataset uploaded yet.</p>
+    </section>
+
+    <section>
+        <h2>2. Sales Dashboard</h2>
+
+        <div class="cards">
+            <div class="stat">
+                <h3>Total Revenue</h3>
+                <p id="revenue">₹0</p>
+            </div>
+
+            <div class="stat">
+                <h3>Total Orders</h3>
+                <p id="orders">0</p>
+            </div>
+
+            <div class="stat">
+                <h3>Unique Customers</h3>
+                <p id="customers">0</p>
+            </div>
+
+            <div class="stat">
+                <h3>Unique Products</h3>
+                <p id="products">0</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="charts">
+        <div class="chart-box">
+            <h2>Monthly Sales</h2>
+            <canvas id="monthlyChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <h2>Top Products</h2>
+            <canvas id="productsChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <h2>Sales by Country</h2>
+            <canvas id="countryChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <h2>Customer Spending</h2>
+            <canvas id="customerChart"></canvas>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>3. Data Analysis Information</h2>
+        <p id="dataInfo">Upload a dataset to view analysis information.</p>
+        <button onclick="loadDashboard()">Refresh Dashboard</button>
+    </section>
+
 </div>
 
-<div class="cards">
-<div class="card"><small>Total Revenue</small><h2 id="revenue">£0</h2></div>
-<div class="card"><small>Total Orders</small><h2 id="orders">0</h2></div>
-<div class="card"><small>Unique Customers</small><h2 id="customers">0</h2></div>
-<div class="card"><small>Products</small><h2 id="products">0</h2></div>
-<div class="card"><small>Cleaned Records</small><h2 id="records">0</h2></div>
-</div>
-
-<h2 class="section">Sales Analytics</h2>
-<div class="charts">
-<div class="panel"><h3>Monthly Sales Trend</h3><div class="chart"><canvas id="monthly"></canvas></div></div>
-<div class="panel"><h3>Top 10 Products</h3><div class="chart"><canvas id="product"></canvas></div></div>
-<div class="panel"><h3>Country-wise Revenue</h3><div class="chart"><canvas id="country"></canvas></div></div>
-<div class="panel"><h3>Customer Purchase Distribution</h3><div class="chart"><canvas id="customer"></canvas></div></div>
-</div>
-
-<h2 class="section">Top Products</h2>
-<div class="panel tablewrap">
-<table><thead><tr><th>Product</th><th>Quantity</th><th>Revenue</th></tr></thead>
-<tbody id="productTable"></tbody></table>
-</div>
-
-<h2 class="section">Country Performance</h2>
-<div class="panel tablewrap">
-<table><thead><tr><th>Country</th><th>Orders</th><th>Revenue</th></tr></thead>
-<tbody id="countryTable"></tbody></table>
-</div>
-</main>
-
-<footer>Academic Project | E-Commerce Customer Analytics</footer>
+<footer>
+    E-Commerce Customer Behaviour & Sales Analytics
+    <br>
+    Academic Mini Project | SDG 8 – Decent Work and Economic Growth
+</footer>
 
 <script>
-// Replace this with your deployed Render backend URL.
+/* IMPORTANT:
+   Replace this URL with your actual Render backend URL.
+   Do not add /api/dashboard at the end.
+*/
 const API = "https://YOUR-BACKEND.onrender.com";
 
-let chartObjects = {};
+let monthlyChart, productsChart, countryChart, customerChart;
 
-function money(n){
- return "£" + Number(n).toLocaleString("en-GB",{maximumFractionDigits:2});
+function setStatus(message, color = "#ddd") {
+    const el = document.getElementById("connectionStatus");
+    el.textContent = message;
+    el.style.color = color;
 }
 
-function makeChart(id,type,labels,values,label){
- if(chartObjects[id]) chartObjects[id].destroy();
-
- chartObjects[id]=new Chart(document.getElementById(id),{
-  type,
-  data:{
-   labels,
-   datasets:[{
-    label,
-    data:values,
-    backgroundColor:[
-     "#d4af37","#9e8538","#f0d477","#796329",
-     "#b99a42","#e8c75d","#8b7437","#c5a64d",
-     "#a48a42","#f3d987"
-    ],
-    borderColor:"#d4af37",
-    borderWidth:2,
-    tension:.3
-   }]
-  },
-  options:{
-   responsive:true,
-   maintainAspectRatio:false,
-   plugins:{legend:{labels:{color:"#fff"}}},
-   scales:type==="doughnut"?{}:{
-    x:{ticks:{color:"#ddd"},grid:{color:"#333"}},
-    y:{ticks:{color:"#ddd"},grid:{color:"#333"}}
-   }
-  }
- });
+function formatNumber(value) {
+    return Number(value || 0).toLocaleString("en-IN", {
+        maximumFractionDigits: 2
+    });
 }
 
-function safeText(value){
- const td=document.createElement("td");
- td.textContent=value;
- return td;
+function getArray(data, possibleKeys) {
+    for (const key of possibleKeys) {
+        if (Array.isArray(data[key])) return data[key];
+    }
+    return [];
 }
 
-function showTable(id,rows,keys){
- const body=document.getElementById(id);
- body.replaceChildren();
-
- rows.forEach(row=>{
-  const tr=document.createElement("tr");
-  keys.forEach(key=>tr.appendChild(safeText(row[key])));
-  body.appendChild(tr);
- });
+function getLabel(item, keys) {
+    for (const key of keys) {
+        if (item && item[key] !== undefined && item[key] !== null) {
+            return item[key];
+        }
+    }
+    return "Unknown";
 }
 
-function displayDashboard(d){
- document.getElementById("revenue").textContent=money(d.total_revenue);
- document.getElementById("orders").textContent=d.total_orders;
- document.getElementById("customers").textContent=d.unique_customers;
- document.getElementById("products").textContent=d.unique_products;
- document.getElementById("records").textContent=d.cleaned_records;
-
- makeChart("monthly","line",
-  d.monthly_sales.map(x=>x.month),
-  d.monthly_sales.map(x=>x.revenue),"Revenue");
-
- makeChart("product","bar",
-  d.top_products.map(x=>x.product.slice(0,22)),
-  d.top_products.map(x=>x.revenue),"Revenue");
-
- makeChart("country","bar",
-  d.country_sales.map(x=>x.country),
-  d.country_sales.map(x=>x.revenue),"Revenue");
-
- makeChart("customer","doughnut",
-  d.customer_distribution.map(x=>x.category),
-  d.customer_distribution.map(x=>x.count),"Customers");
-
- showTable("productTable",d.top_products.map(x=>({
-  product:x.product,
-  quantity:x.quantity,
-  revenue:money(x.revenue)
- })),["product","quantity","revenue"]);
-
- showTable("countryTable",d.country_sales.map(x=>({
-  country:x.country,
-  orders:x.orders,
-  revenue:money(x.revenue)
- })),["country","orders","revenue"]);
+function getValue(item, keys) {
+    for (const key of keys) {
+        if (item && item[key] !== undefined && item[key] !== null) {
+            return Number(item[key]) || 0;
+        }
+    }
+    return 0;
 }
 
-document.getElementById("file").addEventListener("change",async e=>{
- const file=e.target.files[0];
- if(!file)return;
+async function checkBackend() {
+    try {
+        const response = await fetch(API + "/");
+        if (!response.ok) throw new Error("Backend unavailable");
 
- const status=document.getElementById("status");
- status.textContent="Uploading and processing dataset...";
+        const result = await response.json();
+        setStatus("● Backend Connected", "#65e28b");
 
- try{
-  const form=new FormData();
-  form.append("file",file);
+        document.getElementById("dataInfo").textContent =
+            result.message || "Backend is running.";
 
-  const response=await fetch(API+"/api/upload",{
-   method:"POST",
-   body:form
-  });
-
-  const result=await response.json();
-  if(!response.ok) throw new Error(result.detail||"Upload failed");
-
-  status.textContent=result.message;
-  await loadDashboard();
-
- }catch(error){
-  status.textContent="Connection error: "+error.message+
-   ". Check that the backend is deployed and running.";
- }
-});
-
-async function loadDashboard(){
- const response=await fetch(API+"/api/dashboard");
- const data=await response.json();
-
- if(!response.ok)throw new Error(data.detail||"Dashboard loading failed");
- displayDashboard(data);
+        await loadDashboard();
+    } catch (error) {
+        setStatus("● Backend Not Connected – Check API URL", "#ff7070");
+        console.error(error);
+    }
 }
 
-async function checkBackend(){
- try{
-  const response=await fetch(API+"/");
-  const data=await response.json();
-  document.getElementById("status").textContent=data.message;
- }catch(e){
-  document.getElementById("status").textContent=
-   "Backend not connected yet. Deploy the backend and update the API URL.";
- }
+async function uploadDataset() {
+    const fileInput = document.getElementById("datasetFile");
+    const status = document.getElementById("uploadStatus");
+
+    if (!fileInput.files.length) {
+        status.textContent = "Please select your Excel dataset first.";
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    if (!file.name.toLowerCase().endsWith(".xlsx") &&
+        !file.name.toLowerCase().endsWith(".xls")) {
+        status.textContent = "Please select an Excel file.";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    status.textContent = "Uploading and processing dataset...";
+
+    try {
+        const response = await fetch(API + "/api/upload", {
+            method: "POST",
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.detail || "Dataset upload failed");
+        }
+
+        status.textContent =
+            "Upload successful! " +
+            JSON.stringify(result);
+
+        await loadDashboard();
+
+    } catch (error) {
+        status.textContent = "Upload error: " + error.message;
+        console.error(error);
+    }
+}
+
+async function loadDashboard() {
+    try {
+        const response = await fetch(API + "/api/dashboard");
+
+        if (!response.ok) {
+            throw new Error("Dashboard data not available");
+        }
+
+        const data = await response.json();
+
+        document.getElementById("revenue").textContent =
+            "£" + formatNumber(data.revenue);
+
+        document.getElementById("orders").textContent =
+            formatNumber(data.orders);
+
+        document.getElementById("customers").textContent =
+            formatNumber(data.customers);
+
+        document.getElementById("products").textContent =
+            formatNumber(data.products);
+
+        document.getElementById("dataInfo").textContent =
+            "Cleaned dataset rows: " +
+            formatNumber(data.rows ?? data.cleaned_rows);
+
+        drawCharts(data);
+
+    } catch (error) {
+        console.error(error);
+        document.getElementById("dataInfo").textContent =
+            "Dashboard data unavailable. Upload your dataset and check the backend.";
+    }
+}
+
+function makeChart(oldChart, canvasId, type, labels, values, label) {
+    if (oldChart) oldChart.destroy();
+
+    const ctx = document.getElementById(canvasId);
+
+    return new Chart(ctx, {
+        type: type,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: label,
+                data: values,
+                backgroundColor: [
+                    "#d4af37", "#e6c65c", "#b8962e",
+                    "#f0d98a", "#92751f", "#c9a43b",
+                    "#a88a32", "#f5df9c"
+                ],
+                borderColor: "#e4c15a",
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    labels: { color: "#fff" }
+                }
+            },
+            scales: type === "bar" || type === "line" ? {
+                x: {
+                    ticks: { color: "#ddd" },
+                    grid: { color: "#393939" }
+                },
+                y: {
+                    ticks: { color: "#ddd" },
+                    grid: { color: "#393939" }
+                }
+            } : {}
+        }
+    });
+}
+
+function drawCharts(data) {
+    const monthly = getArray(data, ["monthly_sales", "monthly"]);
+    const topProducts = getArray(data, ["top_products", "products_sales"]);
+    const countries = getArray(data, ["country_sales", "countries"]);
+    const spending = getArray(data, ["customer_spend", "customer_spending"]);
+
+    monthlyChart = makeChart(
+        monthlyChart,
+        "monthlyChart",
+        "line",
+        monthly.map(x => getLabel(x, ["month", "Month", "date"])),
+        monthly.map(x => getValue(x, ["sales", "revenue", "total"])),
+        "Monthly Sales"
+    );
+
+    productsChart = makeChart(
+        productsChart,
+        "productsChart",
+        "bar",
+        topProducts.map(x => String(getLabel(x, ["product", "description", "Description"]))),
+        topProducts.map(x => getValue(x, ["sales", "revenue", "total"])),
+        "Product Sales"
+    );
+
+    countryChart = makeChart(
+        countryChart,
+        "countryChart",
+        "bar",
+        countries.map(x => getLabel(x, ["country", "Country"])),
+        countries.map(x => getValue(x, ["sales", "revenue", "total"])),
+        "Country Sales"
+    );
+
+    customerChart = makeChart(
+        customerChart,
+        "customerChart",
+        "bar",
+        spending.map(x => getLabel(x, ["customer", "category", "group"])),
+        spending.map(x => getValue(x, ["spend", "sales", "revenue", "total"])),
+        "Customer Spending"
+    );
 }
 
 checkBackend();
 </script>
+
 </body>
 </html>
