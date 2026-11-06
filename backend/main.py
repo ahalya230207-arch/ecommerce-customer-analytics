@@ -1,10 +1,12 @@
+
 import os
 from io import BytesIO
+from functools import lru_cache
 
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, text, inspect
+from sqlalchemy import create_engine, text
 
 app = FastAPI(title="E-Commerce Analytics API")
 
@@ -16,10 +18,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database URL is configured securely in Render Environment.
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
+@lru_cache(maxsize=1)
 def get_engine():
     if not DATABASE_URL:
         raise HTTPException(
@@ -29,13 +31,21 @@ def get_engine():
 
     url = DATABASE_URL
 
-    # Use psycopg 3 with SQLAlchemy.
     if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+psycopg://", 1)
+        url = url.replace(
+            "postgres://", "postgresql+psycopg://", 1
+        )
     elif url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        url = url.replace(
+            "postgresql://", "postgresql+psycopg://", 1
+        )
 
-    return create_engine(url, pool_pre_ping=True)
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=2,
+        max_overflow=0
+    )
 
 
 @app.get("/")
@@ -49,8 +59,7 @@ def home():
 @app.get("/api/health")
 def database_health():
     try:
-        engine = get_engine()
-        with engine.connect() as connection:
+        with get_engine().connect() as connection:
             connection.execute(text("SELECT 1"))
 
         return {
@@ -78,8 +87,8 @@ async def upload_dataset(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         df = pd.read_excel(BytesIO(contents))
+        del contents
 
-        # Clean column names.
         df.columns = df.columns.astype(str).str.strip()
 
         required = [
@@ -93,7 +102,10 @@ async def upload_dataset(file: UploadFile = File(...)):
             "Country"
         ]
 
-        missing = [column for column in required if column not in df.columns]
+        missing = [
+            column for column in required
+            if column not in df.columns
+        ]
 
         if missing:
             raise HTTPException(
@@ -101,22 +113,37 @@ async def upload_dataset(file: UploadFile = File(...)):
                 detail=f"Missing Excel columns: {missing}"
             )
 
-        # Clean data.
         df["InvoiceNo"] = df["InvoiceNo"].astype(str).str.strip()
-        df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce")
-        df["UnitPrice"] = pd.to_numeric(df["UnitPrice"], errors="coerce")
+        df["Quantity"] = pd.to_numeric(
+            df["Quantity"], errors="coerce"
+        )
+        df["UnitPrice"] = pd.to_numeric(
+            df["UnitPrice"], errors="coerce"
+        )
         df["InvoiceDate"] = pd.to_datetime(
             df["InvoiceDate"], errors="coerce"
         )
 
         df = df.dropna(
-            subset=["InvoiceNo", "StockCode", "Description",
-                    "Quantity", "InvoiceDate", "UnitPrice", "Country"]
+            subset=[
+                "InvoiceNo",
+                "StockCode",
+                "Description",
+                "Quantity",
+                "InvoiceDate",
+                "UnitPrice",
+                "Country"
+            ]
         )
 
-        # Remove cancelled invoices and invalid transactions.
-        df = df[~df["InvoiceNo"].str.startswith("C", na=False)]
-        df = df[(df["Quantity"] > 0) & (df["UnitPrice"] > 0)]
+        df = df[
+            ~df["InvoiceNo"].str.startswith("C", na=False)
+        ]
+
+        df = df[
+            (df["Quantity"] > 0) &
+            (df["UnitPrice"] > 0)
+        ]
 
         df["Sales"] = df["Quantity"] * df["UnitPrice"]
 
@@ -126,7 +153,9 @@ async def upload_dataset(file: UploadFile = File(...)):
                 detail="No valid sales records found."
             )
 
-        # Store cleaned records in PostgreSQL.
+        records_saved = len(df)
+        total_revenue = round(float(df["Sales"].sum()), 2)
+
         engine = get_engine()
 
         df.to_sql(
@@ -134,21 +163,27 @@ async def upload_dataset(file: UploadFile = File(...)):
             engine,
             if_exists="replace",
             index=False,
-            chunksize=1000
+            chunksize=500,
+            method="multi"
         )
+
+        del df
 
         return {
             "status": "success",
             "message": "Dataset saved to PostgreSQL database.",
             "database": "PostgreSQL",
-            "records_saved": int(len(df)),
-            "total_revenue": round(float(df["Sales"].sum()), 2)
+            "records_saved": int(records_saved),
+            "total_revenue": total_revenue
         }
 
     except HTTPException:
         raise
     except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
 
 
 @app.get("/api/dashboard")
@@ -156,103 +191,147 @@ def dashboard():
     try:
         engine = get_engine()
 
-        if not inspect(engine).has_table("sales"):
-            return {
-                "revenue": 0,
-                "orders": 0,
-                "customers": 0,
-                "products": 0,
-                "rows": 0,
-                "monthly_sales": [],
-                "top_products": [],
-                "country_sales": [],
-                "customer_spend": []
-            }
-
         with engine.connect() as connection:
-            df = pd.read_sql_query(
-                text('SELECT * FROM "sales"'),
-                connection
-            )
 
-        if df.empty:
-            return {
-                "revenue": 0,
-                "orders": 0,
-                "customers": 0,
-                "products": 0,
-                "rows": 0,
-                "monthly_sales": [],
-                "top_products": [],
-                "country_sales": [],
-                "customer_spend": []
-            }
+            # Check whether the sales table exists.
+            table_check = connection.execute(
+                text("""
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.tables
+                        WHERE table_schema = current_schema()
+                        AND table_name = 'sales'
+                    )
+                """)
+            ).scalar()
 
-        df["InvoiceDate"] = pd.to_datetime(
-            df["InvoiceDate"], errors="coerce"
-        )
+            if not table_check:
+                return {
+                    "revenue": 0,
+                    "orders": 0,
+                    "customers": 0,
+                    "products": 0,
+                    "rows": 0,
+                    "monthly_sales": [],
+                    "top_products": [],
+                    "country_sales": [],
+                    "customer_spend": []
+                }
 
-        revenue = float(df["Sales"].sum())
+            # PostgreSQL calculates all main KPIs.
+            totals = connection.execute(
+                text("""
+                    SELECT
+                        COALESCE(SUM("Sales"), 0) AS revenue,
+                        COUNT(DISTINCT "InvoiceNo") AS orders,
+                        COUNT(DISTINCT "CustomerID") AS customers,
+                        COUNT(DISTINCT "StockCode") AS products,
+                        COUNT(*) AS rows
+                    FROM sales
+                """)
+            ).mappings().one()
 
-        monthly = (
-            df.dropna(subset=["InvoiceDate"])
-            .assign(month=lambda x: x["InvoiceDate"].dt.strftime("%Y-%m"))
-            .groupby("month", as_index=False)["Sales"]
-            .sum()
-        )
+            # Monthly sales.
+            monthly = connection.execute(
+                text("""
+                    SELECT
+                        TO_CHAR(
+                            DATE_TRUNC('month', "InvoiceDate"),
+                            'YYYY-MM'
+                        ) AS month,
+                        SUM("Sales") AS sales
+                    FROM sales
+                    WHERE "InvoiceDate" IS NOT NULL
+                    GROUP BY DATE_TRUNC('month', "InvoiceDate")
+                    ORDER BY DATE_TRUNC('month', "InvoiceDate")
+                """)
+            ).mappings().all()
 
-        top_products = (
-            df.groupby("Description", as_index=False)["Sales"]
-            .sum()
-            .nlargest(10, "Sales")
-            .rename(columns={
-                "Description": "product",
-                "Sales": "sales"
-            })
-        )
+            # Top 10 products.
+            products = connection.execute(
+                text("""
+                    SELECT
+                        "Description" AS product,
+                        SUM("Sales") AS sales
+                    FROM sales
+                    GROUP BY "Description"
+                    ORDER BY sales DESC
+                    LIMIT 10
+                """)
+            ).mappings().all()
 
-        country_sales = (
-            df.groupby("Country", as_index=False)["Sales"]
-            .sum()
-            .nlargest(10, "Sales")
-            .rename(columns={
-                "Country": "country",
-                "Sales": "sales"
-            })
-        )
+            # Top 10 countries.
+            countries = connection.execute(
+                text("""
+                    SELECT
+                        "Country" AS country,
+                        SUM("Sales") AS sales
+                    FROM sales
+                    GROUP BY "Country"
+                    ORDER BY sales DESC
+                    LIMIT 10
+                """)
+            ).mappings().all()
 
-        customer_spend = (
-            df.dropna(subset=["CustomerID"])
-            .groupby("CustomerID", as_index=False)["Sales"]
-            .sum()
-            .nlargest(10, "Sales")
-        )
+            # Top 10 customers by spending.
+            customers = connection.execute(
+                text("""
+                    SELECT
+                        CAST("CustomerID" AS TEXT) AS customer,
+                        SUM("Sales") AS spend
+                    FROM sales
+                    WHERE "CustomerID" IS NOT NULL
+                    GROUP BY "CustomerID"
+                    ORDER BY spend DESC
+                    LIMIT 10
+                """)
+            ).mappings().all()
 
-        customer_spend["customer"] = (
-            customer_spend["CustomerID"].astype(str)
-        )
-        customer_spend = customer_spend.rename(
-            columns={"Sales": "spend"}
-        )
-
+        # Convert PostgreSQL Decimal values into JSON numbers.
         return {
-            "revenue": round(revenue, 2),
-            "orders": int(df["InvoiceNo"].nunique()),
-            "customers": int(df["CustomerID"].nunique()),
-            "products": int(df["StockCode"].nunique()),
-            "rows": int(len(df)),
-            "monthly_sales": monthly.rename(
-                columns={"Sales": "sales"}
-            ).to_dict(orient="records"),
-            "top_products": top_products.to_dict(orient="records"),
-            "country_sales": country_sales.to_dict(orient="records"),
-            "customer_spend": customer_spend[
-                ["customer", "spend"]
-            ].to_dict(orient="records")
+            "revenue": round(float(totals["revenue"]), 2),
+            "orders": int(totals["orders"]),
+            "customers": int(totals["customers"]),
+            "products": int(totals["products"]),
+            "rows": int(totals["rows"]),
+
+            "monthly_sales": [
+                {
+                    "month": item["month"],
+                    "sales": round(float(item["sales"]), 2)
+                }
+                for item in monthly
+            ],
+
+            "top_products": [
+                {
+                    "product": item["product"],
+                    "sales": round(float(item["sales"]), 2)
+                }
+                for item in products
+            ],
+
+            "country_sales": [
+                {
+                    "country": item["country"],
+                    "sales": round(float(item["sales"]), 2)
+                }
+                for item in countries
+            ],
+
+            "customer_spend": [
+                {
+                    "customer": item["customer"],
+                    "spend": round(float(item["spend"]), 2)
+                }
+                for item in customers
+            ]
         }
 
     except HTTPException:
         raise
     except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
-        
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
